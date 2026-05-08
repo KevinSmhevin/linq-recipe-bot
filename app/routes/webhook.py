@@ -138,6 +138,10 @@ async def handle_linq_webhook(
         return Response(status_code=HTTPStatus.OK)
 
     thread_key = data.sender_handle.handle
+    allowed = settings.linq_allowed_senders
+    if allowed and thread_key not in allowed:
+        return Response(status_code=HTTPStatus.OK)
+
     linq: LinqClient = request.app.state.linq
 
     text_parts = [

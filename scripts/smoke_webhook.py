@@ -50,20 +50,21 @@ class StubLinq:
         self.sends.append((to, text))
 
 
-def _settings() -> Settings:
+def _settings(*, allowed_senders: frozenset[str] = frozenset()) -> Settings:
     return Settings(  # type: ignore[call-arg]
         linq_partner_token=SecretStr("partner-token"),
         linq_webhook_secret=SecretStr(WEBHOOK_SECRET),
         linq_from_number=BOT_NUMBER,
         llm_provider=LLMProvider.ANTHROPIC,
         anthropic_api_key=SecretStr("test"),
+        linq_allowed_senders=allowed_senders,
     )
 
 
-def _make_app(chef: StubChef, linq: StubLinq):
+def _make_app(chef: StubChef, linq: StubLinq, *, settings: Settings | None = None):
     app = FastAPI()
     app.include_router(router)
-    app.state.settings = _settings()
+    app.state.settings = settings or _settings()
     app.state.chef = chef
     app.state.linq = linq
     app.state.conversation_store = InMemoryConversationStore(ttl_hours=24)
@@ -251,6 +252,33 @@ def test_non_text_part_refusal():
     print("non-text refusal OK")
 
 
+def test_disallowed_sender_ignored():
+    chef = StubChef()
+    linq = StubLinq()
+    settings = _settings(allowed_senders=frozenset({"+15550009999"}))
+    app = _make_app(chef, linq, settings=settings)
+    body = _envelope("message.received", "evt-disallowed", _message_received_data())
+    with TestClient(app) as client:
+        r = _post(client, body)
+    assert r.status_code == 200
+    assert chef.calls == [] and linq.sends == []
+    print("disallowed sender → 200 no-op OK")
+
+
+def test_allowed_sender_passes():
+    chef = StubChef("ok")
+    linq = StubLinq()
+    settings = _settings(allowed_senders=frozenset({SENDER}))
+    app = _make_app(chef, linq, settings=settings)
+    body = _envelope("message.received", "evt-allowed", _message_received_data())
+    with TestClient(app) as client:
+        r = _post(client, body)
+    assert r.status_code == 200
+    assert len(chef.calls) == 1
+    assert linq.sends == [(SENDER, "ok")]
+    print("allowed sender passes OK")
+
+
 def test_outbound_direction_ignored():
     chef = StubChef()
     linq = StubLinq()
@@ -274,6 +302,8 @@ def main():
     test_group_chat_ignored()
     test_non_text_part_refusal()
     test_outbound_direction_ignored()
+    test_disallowed_sender_ignored()
+    test_allowed_sender_passes()
     print("\nwebhook smoke OK")
 
 
