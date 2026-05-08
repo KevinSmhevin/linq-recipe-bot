@@ -1,5 +1,7 @@
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.enums import LLMProvider
 
 
 class Settings(BaseSettings):
@@ -10,13 +12,25 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    anthropic_api_key: SecretStr
     linq_partner_token: SecretStr
     linq_webhook_secret: SecretStr
     linq_from_number: str
 
-    claude_model: str = "claude-haiku-4-5"
+    llm_provider: LLMProvider = LLMProvider.ANTHROPIC
+    llm_model: str = "claude-haiku-4-5"
+
+    anthropic_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
+
     conversation_ttl_hours: int = 24
+
+    @model_validator(mode="after")
+    def _require_active_provider_key(self) -> "Settings":
+        if self.llm_provider is LLMProvider.ANTHROPIC and self.anthropic_api_key is None:
+            raise ValueError("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic")
+        if self.llm_provider is LLMProvider.OPENAI and self.openai_api_key is None:
+            raise ValueError("OPENAI_API_KEY is required when LLM_PROVIDER=openai")
+        return self
 
 
 def get_settings() -> Settings:

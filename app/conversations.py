@@ -11,9 +11,9 @@ class Message(TypedDict):
 
 
 class ConversationStore(Protocol):
-    async def get(self, thread_key: str) -> list[Message]: ...
-    async def append(self, thread_key: str, role: Role, content: str) -> None: ...
-    async def clear(self, thread_key: str) -> None: ...
+    def get(self, thread_key: str) -> list[Message]: ...
+    def append(self, thread_key: str, role: Role, content: str) -> None: ...
+    def clear(self, thread_key: str) -> None: ...
 
 
 def _utcnow() -> datetime:
@@ -43,11 +43,11 @@ class InMemoryConversationStore:
             self._threads.pop(thread_key, None)
             self._last_seen.pop(thread_key, None)
 
-    async def get(self, thread_key: str) -> list[Message]:
+    def get(self, thread_key: str) -> list[Message]:
         self._evict_if_expired(thread_key)
         return list(self._threads.get(thread_key, ()))
 
-    async def append(self, thread_key: str, role: Role, content: str) -> None:
+    def append(self, thread_key: str, role: Role, content: str) -> None:
         self._evict_if_expired(thread_key)
         history = self._threads.setdefault(thread_key, [])
         history.append({"role": role, "content": content})
@@ -56,6 +56,6 @@ class InMemoryConversationStore:
             del history[:overflow]
         self._last_seen[thread_key] = self._now()
 
-    async def clear(self, thread_key: str) -> None:
+    def clear(self, thread_key: str) -> None:
         self._threads.pop(thread_key, None)
         self._last_seen.pop(thread_key, None)
