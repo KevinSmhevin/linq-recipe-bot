@@ -6,8 +6,10 @@ from fastapi import FastAPI
 from app.chef import ChefAssistant
 from app.config import Settings, get_settings
 from app.conversations import InMemoryConversationStore
+from app.dedup import InMemoryEventDedup
 from app.linq import LinqClient
 from app.llm import AISDKChatProvider
+from app.routes.webhook import router as webhook_router
 
 
 @asynccontextmanager
@@ -20,12 +22,14 @@ async def lifespan(app: FastAPI):
     chat_provider = AISDKChatProvider(settings)
     chef = ChefAssistant(chat_provider)
     linq = LinqClient(http_client, settings)
+    event_dedup = InMemoryEventDedup(ttl_seconds=settings.webhook_dedup_ttl_seconds)
 
     app.state.settings = settings
     app.state.http_client = http_client
     app.state.conversation_store = conversation_store
     app.state.chef = chef
     app.state.linq = linq
+    app.state.event_dedup = event_dedup
 
     try:
         yield
@@ -34,6 +38,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan, title="linq-recipe-bot")
+app.include_router(webhook_router)
 
 
 @app.get("/health")

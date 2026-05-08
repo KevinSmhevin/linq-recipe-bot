@@ -5,6 +5,8 @@ from app.constants import (
     DEFAULT_CONVERSATION_TTL_HOURS,
     DEFAULT_LINQ_BASE_URL,
     DEFAULT_LLM_MODEL,
+    DEFAULT_WEBHOOK_DEDUP_TTL_SECONDS,
+    DEFAULT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
 )
 from app.enums import LLMProvider
 
@@ -29,6 +31,8 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
 
     conversation_ttl_hours: int = DEFAULT_CONVERSATION_TTL_HOURS
+    webhook_timestamp_tolerance_seconds: int = DEFAULT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS
+    webhook_dedup_ttl_seconds: int = DEFAULT_WEBHOOK_DEDUP_TTL_SECONDS
 
     @model_validator(mode="after")
     def _require_active_provider_key(self) -> "Settings":
