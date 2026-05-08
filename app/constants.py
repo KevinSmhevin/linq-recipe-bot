@@ -9,3 +9,6 @@ DEFAULT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS = 300
 DEFAULT_WEBHOOK_DEDUP_TTL_SECONDS = 1800
 
 NON_TEXT_REFUSAL_TEXT = "i can only handle text right now. send a recipe question and i'll help."
+CHEF_ERROR_FALLBACK_TEXT = "having trouble right now. try again in a moment."
+
+DEFAULT_MAX_INBOUND_TEXT_CHARS = 2000

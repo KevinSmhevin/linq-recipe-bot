@@ -7,6 +7,7 @@ from app.constants import (
     DEFAULT_CONVERSATION_TTL_HOURS,
     DEFAULT_LINQ_BASE_URL,
     DEFAULT_LLM_MODEL,
+    DEFAULT_MAX_INBOUND_TEXT_CHARS,
     DEFAULT_WEBHOOK_DEDUP_TTL_SECONDS,
     DEFAULT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS,
 )
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     conversation_ttl_hours: int = DEFAULT_CONVERSATION_TTL_HOURS
     webhook_timestamp_tolerance_seconds: int = DEFAULT_WEBHOOK_TIMESTAMP_TOLERANCE_SECONDS
     webhook_dedup_ttl_seconds: int = DEFAULT_WEBHOOK_DEDUP_TTL_SECONDS
+    max_inbound_text_chars: int = DEFAULT_MAX_INBOUND_TEXT_CHARS
 
     # Empty set (default) means "allow any sender". Populate to restrict.
     # NoDecode skips pydantic-settings' JSON pre-decode for set/list types so

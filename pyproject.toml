@@ -13,3 +13,12 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "uvicorn>=0.46.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

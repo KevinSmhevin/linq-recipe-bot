@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from http import HTTPStatus
 from typing import Any
@@ -7,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from app.chef import ChefAssistant
-from app.constants import NON_TEXT_REFUSAL_TEXT
+from app.constants import CHEF_ERROR_FALLBACK_TEXT, NON_TEXT_REFUSAL_TEXT
 from app.conversations import ConversationStore
 from app.dedup import EventDedup
 from app.enums import (
@@ -57,6 +58,24 @@ class _LinqEnvelope(_BaseModel):
     data: dict[str, Any]
 
 
+def _send(linq: LinqClient, to: str, text: str, *, kind: str) -> bool:
+    """Send via Linq with timing + structured logging. Returns True on success."""
+    start = time.monotonic()
+    try:
+        linq.send_text(to, text)
+    except Exception as exc:
+        logger.warning(
+            "linq_send_failed thread=%s kind=%s err=%s",
+            to, kind, exc,
+        )
+        return False
+    logger.info(
+        "linq_send thread=%s kind=%s latency_ms=%d chars=%d",
+        to, kind, int((time.monotonic() - start) * 1000), len(text),
+    )
+    return True
+
+
 def _process_inbound(
     *,
     chef: ChefAssistant,
@@ -66,25 +85,32 @@ def _process_inbound(
     user_text: str,
 ) -> None:
     history = store.get(thread_key)
+    chef_started = time.monotonic()
     try:
         reply = chef.reply(history, user_text)
-    except Exception:
-        logger.exception("chef failed for thread=%s", thread_key)
+    except Exception as exc:
+        logger.warning(
+            "chef_failed thread=%s err=%s",
+            thread_key, exc,
+        )
+        _send(linq, thread_key, CHEF_ERROR_FALLBACK_TEXT, kind="fallback")
         return
-    try:
-        linq.send_text(thread_key, reply)
-    except Exception:
-        logger.exception("linq send failed for thread=%s", thread_key)
+    logger.info(
+        "chef_reply thread=%s latency_ms=%d input_chars=%d output_chars=%d",
+        thread_key,
+        int((time.monotonic() - chef_started) * 1000),
+        len(user_text),
+        len(reply),
+    )
+
+    if not _send(linq, thread_key, reply, kind="reply"):
         return
     store.append(thread_key, Role.USER, user_text)
     store.append(thread_key, Role.ASSISTANT, reply)
 
 
 def _send_non_text_refusal(*, linq: LinqClient, to: str) -> None:
-    try:
-        linq.send_text(to, NON_TEXT_REFUSAL_TEXT)
-    except Exception:
-        logger.exception("non-text refusal send failed for to=%s", to)
+    _send(linq, to, NON_TEXT_REFUSAL_TEXT, kind="non_text_refusal")
 
 
 @router.post(WEBHOOK_PATH)
@@ -152,12 +178,20 @@ async def handle_linq_webhook(
         background_tasks.add_task(_send_non_text_refusal, linq=linq, to=thread_key)
         return Response(status_code=HTTPStatus.OK)
 
+    user_text = "\n".join(text_parts)
+    if len(user_text) > settings.max_inbound_text_chars:
+        user_text = user_text[: settings.max_inbound_text_chars]
+
+    logger.info(
+        "webhook_received event_id=%s thread=%s parts=%d input_chars=%d",
+        envelope.event_id, thread_key, len(data.parts), len(user_text),
+    )
     background_tasks.add_task(
         _process_inbound,
         chef=request.app.state.chef,
         linq=linq,
         store=request.app.state.conversation_store,
         thread_key=thread_key,
-        user_text="\n".join(text_parts),
+        user_text=user_text,
     )
     return Response(status_code=HTTPStatus.OK)

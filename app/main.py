@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 import httpx
@@ -12,8 +13,18 @@ from app.llm import AISDKChatProvider
 from app.routes.webhook import router as webhook_router
 
 
+def _configure_logging() -> None:
+    # force=True overrides uvicorn's default handler so app.* INFO logs appear.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+        force=True,
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _configure_logging()
     settings: Settings = get_settings()
     http_client = httpx.Client(timeout=httpx.Timeout(30.0, connect=5.0))
     conversation_store = InMemoryConversationStore(
