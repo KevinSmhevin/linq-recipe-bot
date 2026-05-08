@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from app.chef import ChefAssistant
 from app.config import Settings, get_settings
 from app.conversations import InMemoryConversationStore
+from app.linq import LinqClient
 from app.llm import AISDKChatProvider
 
 
@@ -18,11 +19,13 @@ async def lifespan(app: FastAPI):
     )
     chat_provider = AISDKChatProvider(settings)
     chef = ChefAssistant(chat_provider)
+    linq = LinqClient(http_client, settings)
 
     app.state.settings = settings
     app.state.http_client = http_client
     app.state.conversation_store = conversation_store
     app.state.chef = chef
+    app.state.linq = linq
 
     try:
         yield

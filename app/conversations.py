@@ -1,8 +1,8 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
-from typing import Literal, Protocol, TypedDict
+from typing import Protocol, TypedDict
 
-Role = Literal["user", "assistant"]
+from app.enums import Role
 
 
 class Message(TypedDict):

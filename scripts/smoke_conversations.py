@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta, timezone
 
 from app.conversations import InMemoryConversationStore
+from app.enums import Role
 
 
 def main() -> None:
@@ -20,16 +21,16 @@ def main() -> None:
     assert store.get(thread) == []
 
     # append turns
-    store.append(thread, "user", "what can i make with chicken")
-    store.append(thread, "assistant", "chicken piccata\nchicken tikka\nchicken adobo")
+    store.append(thread, Role.USER, "what can i make with chicken")
+    store.append(thread, Role.ASSISTANT, "chicken piccata\nchicken tikka\nchicken adobo")
     history = store.get(thread)
     assert len(history) == 2
-    assert history[0] == {"role": "user", "content": "what can i make with chicken"}
+    assert history[0] == {"role": Role.USER, "content": "what can i make with chicken"}
 
     # message cap (max_messages=4): 5th append drops the oldest
-    store.append(thread, "user", "ingredients for chicken piccata")
-    store.append(thread, "assistant", "chicken, lemon, capers, butter, flour")
-    store.append(thread, "user", "and the instructions")
+    store.append(thread, Role.USER, "ingredients for chicken piccata")
+    store.append(thread, Role.ASSISTANT, "chicken, lemon, capers, butter, flour")
+    store.append(thread, Role.USER, "and the instructions")
     history = store.get(thread)
     assert len(history) == 4, f"expected 4, got {len(history)}"
     assert history[0]["content"] == "chicken piccata\nchicken tikka\nchicken adobo"
@@ -40,7 +41,7 @@ def main() -> None:
     assert history == [], f"expected eviction, got {history}"
 
     # writing after eviction starts a fresh thread
-    store.append(thread, "user", "hi again")
+    store.append(thread, Role.USER, "hi again")
     assert len(store.get(thread)) == 1
 
     # explicit clear

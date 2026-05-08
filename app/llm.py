@@ -11,7 +11,7 @@ from ai_sdk.types import (
 
 from app.config import Settings
 from app.conversations import Message
-from app.enums import LLMProvider
+from app.enums import LLMProvider, Role
 
 
 class ChatProvider(Protocol):
@@ -24,7 +24,7 @@ def _build_messages(
     messages: list[CoreMessage] = [CoreSystemMessage(content=system)]
     for msg in history:
         part = TextPart(text=msg["content"])
-        if msg["role"] == "user":
+        if msg["role"] is Role.USER:
             messages.append(CoreUserMessage(content=[part]))
         else:
             messages.append(CoreAssistantMessage(content=[part]))
